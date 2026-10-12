@@ -1,0 +1,65 @@
+version: "3.9"
+
+networks:
+  # Custom bridge network so containers can talk to each other without exposing OmniRoute to the whole host
+  omnroute-net:
+    driver: bridge
+
+services:
+  # -------------------------------------------------
+  # 1️⃣ OmniRoute – the routing proxy
+  # -------------------------------------------------
+  omnroute:
+    image: ghcr.io/diegosouzapw/omniroute   # official image, auto‑updates
+    container_name: omnroute
+    restart: unless-stopped
+    environment:
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+    # Bind only to localhost inside the container; Docker Desktop forwards it to the host
+    ports:
+      - "127.0.0.1:20128:20128"
+    networks:
+      - omnroute-net
+    volumes:
+      - ./data/omnroute:/data   # optional persistence for combos / logs
+
+  # -------------------------------------------------
+  # 2️⃣ Open WebUI – UI that talks to OmniRoute
+  # -------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"                 # UI reachable at http://localhost:3000
+    environment:
+      # Docker Desktop on Windows resolves this hostname to the host machine
+      - OPENAI_API_BASE_URL=http://host.docker.internal:20128/v1
+      - OPENAI_API_KEY=${OMNIROUTE_API_KEY}
+    networks:
+      - omnroute-net
+    volumes:
+      - open-webui:/app/backend/data   # persist chat history / models
+
+  # -------------------------------------------------
+  # 3️⃣ MCP health‑probe server (Python)
+  # -------------------------------------------------
+  mcp-server:
+    build: ./omnroute-mcp      # points to the folder with Dockerfile & server.py
+    container_name: omnroute-mcp
+    restart: unless-stopped
+    environment:
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - OMNIROUTE_URL=http://omnroute:20128   # internal Docker DNS name
+    ports:
+      - "127.0.0.1:8000:8000"             # MCP HTTP endpoint (any agent can reach it)
+    networks:
+      - omnroute-net
+    depends_on:
+      - omnroute
+
+# -------------------------------------------------
+# Named volumes (Docker creates them automatically)
+# -------------------------------------------------
+volumes:
+  open-webui:
