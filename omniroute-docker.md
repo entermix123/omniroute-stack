@@ -10,6 +10,19 @@ A ready‑to‑run Docker‑Compose stack that includes:
     
 
 * * *
+# OmniRoute Docker Setup for Windows
+
+## What is OmniRoute?
+
+**OmniRoute** is a lightweight, local model-routing proxy that sits between your AI clients (Open WebUI, VS Code extensions, custom scripts, etc.) and dozens of upstream LLM providers (Ollama, LM Studio, OpenAI-compatible APIs, cloud endpoints, etc.). It lets you:
+
+- **Combine multiple models into “combos”** with automatic fall-back, priority ordering, and health-based routing.
+- **Expose a single OpenAI-compatible endpoint** (`http://localhost:20128/v1`) so any OpenAI-client code works unchanged.
+- **Manage API keys, timeouts, and retries centrally**—no need to update every client when a provider changes.
+- **Run 100 % locally** (no data leaves your machine unless you explicitly point a combo at a cloud provider).
+
+---
+
 
 ## 1️⃣ Prerequisites
 
@@ -644,3 +657,7 @@ docker compose up -d
 ```
 
 After the container starts, open the Open‑WebUI UI (http://localhost:3000) and you’ll see the same combos you had locally.
+
+
+
+
