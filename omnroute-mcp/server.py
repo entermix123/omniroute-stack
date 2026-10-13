@@ -14,7 +14,6 @@ API_KEY = os.getenv("OMNIROUTE_API_KEY")
 
 mcp = MCPServer("OmniRoute MCP")
 
-
 # -------------------------------------------------
 # OmniRoute helpers
 # -------------------------------------------------
@@ -37,6 +36,15 @@ def _req(method: str, path: str, json_body=None):
 
     resp.raise_for_status()
     return resp.json()
+
+
+def _get_combo_by_name(combo_name: str):
+    """Fetch all combos and find one by name. Returns the combo dict with its UUID."""
+    data = _req("GET", "/api/combos")
+    for combo in data.get("combos", []):
+        if combo.get("name") == combo_name:
+            return combo
+    raise ValueError(f"Combo '{combo_name}' not found")
 
 
 def _normalize_member(member):
@@ -165,10 +173,7 @@ def probe_combo(
 ) -> str:
     """Probe all models in an OmniRoute combo and rank them by health and latency."""
 
-    combo_data = _req(
-        "GET",
-        f"/v1/combos/{combo_id}",
-    )
+    combo_data = _get_combo_by_name(combo_id)
 
     model_ids = _get_model_ids(combo_data)
 
@@ -215,15 +220,41 @@ def set_combo_priority(
     combo_id: str,
     model_order: list[str],
 ) -> str:
-    """Change the model priority order for an OmniRoute combo."""
+    """Change the model priority order for an OmniRoute combo.
+    
+    Args:
+        combo_id: The name of the combo (e.g., "Nvidia-Free-Stack")
+        model_order: List of model IDs in the desired priority order
+    """
 
+    # Get the combo to find its UUID
+    combo_data = _get_combo_by_name(combo_id)
+    combo_uuid = combo_data.get("id")
+    
+    # Build the models array in the new order
+    # We need to preserve the full model objects but reorder them
+    existing_models = combo_data.get("models", [])
+    model_map = {m.get("model"): m for m in existing_models}
+    
+    new_models = []
+    for model_name in model_order:
+        if model_name in model_map:
+            new_models.append(model_map[model_name])
+    
+    # Add any models not in the new order (they'll go to the end)
+    for model_name, model_obj in model_map.items():
+        if model_name not in model_order:
+            new_models.append(model_obj)
+    
     payload = {
-        "model_order": model_order,
+        "name": combo_id,
+        "models": new_models,
+        "strategy": combo_data.get("strategy", "priority"),
     }
 
     data = _req(
         "PATCH",
-        f"/v1/combos/{combo_id}/priority",
+        f"/api/combos/{combo_uuid}",
         payload,
     )
 
@@ -267,5 +298,4 @@ if __name__ == "__main__":
         transport="streamable-http",
         json_response=True,
         host="0.0.0.0",
-        port=8000,
     )
