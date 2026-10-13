@@ -279,6 +279,14 @@ def list_models() -> str:
 
 
 @mcp.tool()
+def list_combos() -> str:
+    """List all combo names available in OmniRoute."""
+    data = _req("GET", "/api/combos")
+    names = [combo.get("name", "") for combo in data.get("combos", [])]
+    return "\n".join(names)
+
+
+@mcp.tool()
 def health_check() -> str:
     """Check whether OmniRoute is reachable and authenticated."""
     try:

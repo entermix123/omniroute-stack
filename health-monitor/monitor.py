@@ -7,20 +7,18 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp")
-COMBO_ID = os.getenv("COMBO_ID", "Nvidia-Free-Stack")
+# COMBO_ID can be:
+# - empty/unset: auto-discover all combos
+# - single combo name: "Nvidia-Free-Stack"
+# - comma-separated: "Nvidia-Free-Stack,AMD-Stack"
+COMBO_ID = os.getenv("COMBO_ID", "").strip()
 INTERVAL_SEC = int(os.getenv("INTERVAL_SEC", "300"))  # 5 min default
 AUTO_APPLY = os.getenv("AUTO_APPLY", "false").lower() == "true"
 HEALTH_PORT = int(os.getenv("HEALTH_PORT", "8080"))
 
 SESSION_ID = None
-LATEST_PROBE = {
-    "timestamp": None,
-    "combo": COMBO_ID,
-    "recommended_order": [],
-    "details": [],
-    "error": None
-}
-LATEST_PROBE_LOCK = threading.Lock()
+LATEST_PROBES = {}  # combo_name -> probe data
+LATEST_PROBES_LOCK = threading.Lock()
 
 def initialize_session():
     """Initialize MCP session by calling initialize method."""
@@ -107,17 +105,42 @@ def call_mcp(method: str, params: dict):
         # If we get here, re-raise the original exception
         raise
 
-def probe_and_maybe_apply():
-    global LATEST_PROBE
-    print(f"[{time.ctime()}] Probing combo: {COMBO_ID}")
+def get_target_combos():
+    """Get list of combos to monitor based on COMBO_ID env var."""
+    if not COMBO_ID:
+        # Auto-discover: call MCP to get all combos via list_combos tool
+        try:
+            result = call_mcp("tools/call", {
+                "name": "list_combos",
+                "arguments": {}
+            })
+            # Parse result - list_combos returns newline-separated combo names
+            result_data = result.get("result", {})
+            content = result_data.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                text_content = content[0].get("text", "")
+                if text_content:
+                    combos = [c.strip() for c in text_content.split("\n") if c.strip()]
+                    if combos:
+                        print(f"[{time.ctime()}] Auto-discovered combos: {combos}")
+                        return combos
+            print(f"[{time.ctime()}] Auto-discover returned empty, using default")
+        except Exception as e:
+            print(f"[{time.ctime()}] Auto-discover failed, using default: {e}")
+        return ["Nvidia-Free-Stack"]  # fallback
+    return [c.strip() for c in COMBO_ID.split(",") if c.strip()]
+
+def probe_combo(combo_name):
+    """Probe a single combo and update global state."""
+    global LATEST_PROBES
+    print(f"[{time.ctime()}] Probing combo: {combo_name}")
     result = call_mcp("tools/call", {
         "name": "probe_combo",
-        "arguments": {"combo_id": COMBO_ID}
+        "arguments": {"combo_id": combo_name}
     })
     
     # Parse the nested JSON response
     try:
-        # The MCP response has result.content[0].text containing the JSON string
         result_data = result.get("result", {})
         content = result_data.get("content", [])
         if content and isinstance(content, list) and len(content) > 0:
@@ -132,10 +155,10 @@ def probe_and_maybe_apply():
         details = data.get("details", [])
         
         # Update global state
-        with LATEST_PROBE_LOCK:
-            LATEST_PROBE = {
+        with LATEST_PROBES_LOCK:
+            LATEST_PROBES[combo_name] = {
                 "timestamp": time.time(),
-                "combo": COMBO_ID,
+                "combo": combo_name,
                 "recommended_order": recommended,
                 "details": details,
                 "error": None
@@ -149,29 +172,34 @@ def probe_and_maybe_apply():
             print(f"  Auto-applying new priority order...")
             apply_result = call_mcp("tools/call", {
                 "name": "set_combo_priority",
-                "arguments": {"combo_id": COMBO_ID, "model_order": recommended}
+                "arguments": {"combo_id": combo_name, "model_order": recommended}
             })
             print(f"  Applied: {apply_result}")
     except Exception as e:
         error_msg = str(e)
         print(f"  Error parsing probe result: {error_msg}")
-        with LATEST_PROBE_LOCK:
-            LATEST_PROBE["error"] = error_msg
-            LATEST_PROBE["timestamp"] = time.time()
+        with LATEST_PROBES_LOCK:
+            LATEST_PROBES[combo_name] = {
+                "timestamp": time.time(),
+                "combo": combo_name,
+                "recommended_order": [],
+                "details": [],
+                "error": error_msg
+            }
+            
+def probe_and_maybe_apply():
+    """Probe all target combos."""
+    target_combos = get_target_combos()
+    for combo_name in target_combos:
+        try:
+            probe_combo(combo_name)
+        except Exception as e:
+            print(f"[{time.ctime()}] Probe failed for {combo_name}: {e}")
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == '/health':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            with LATEST_PROBE_LOCK:
-                response = dict(LATEST_PROBE)
-                if response.get('timestamp'):
-                    response['timestamp_iso'] = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(response['timestamp']))
-            self.wfile.write(json.dumps(response).encode())
-        elif parsed.path == '/health/live':
+        if parsed.path == '/health/live':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -180,9 +208,38 @@ class HealthHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            with LATEST_PROBE_LOCK:
-                ready = LATEST_PROBE.get('timestamp') is not None
+            with LATEST_PROBES_LOCK:
+                ready = len(LATEST_PROBES) > 0 and all(p.get('timestamp') is not None for p in LATEST_PROBES.values())
             self.wfile.write(json.dumps({'status': 'ready' if ready else 'not_ready'}).encode())
+        elif parsed.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            with LATEST_PROBES_LOCK:
+                response = {}
+                for combo_name, probe in LATEST_PROBES.items():
+                    p = dict(probe)
+                    if p.get('timestamp'):
+                        p['timestamp_iso'] = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(p['timestamp']))
+                    response[combo_name] = p
+            self.wfile.write(json.dumps(response).encode())
+        elif parsed.path.startswith('/health/'):
+            combo_name = parsed.path.split('/health/', 1)[1]
+            if not combo_name:
+                self.send_response(400)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            with LATEST_PROBES_LOCK:
+                if combo_name in LATEST_PROBES:
+                    response = dict(LATEST_PROBES[combo_name])
+                    if response.get('timestamp'):
+                        response['timestamp_iso'] = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(response['timestamp']))
+                else:
+                    response = {"error": "Combo not found", "combo": combo_name}
+            self.wfile.write(json.dumps(response).encode())
         else:
             self.send_response(404)
             self.end_headers()
@@ -197,7 +254,7 @@ def run_health_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    print(f"Starting health monitor for combo '{COMBO_ID}' every {INTERVAL_SEC}s (AUTO_APPLY={AUTO_APPLY})")
+    print(f"Starting health monitor (auto-discover combos) every {INTERVAL_SEC}s (AUTO_APPLY={AUTO_APPLY})")
     
     # Start health endpoint server in background thread
     health_thread = threading.Thread(target=run_health_server, daemon=True)
@@ -207,6 +264,10 @@ if __name__ == "__main__":
     while not initialize_session():
         print(f"[{time.ctime()}] Retrying session initialization in 10s...")
         time.sleep(10)
+    
+    # Now that session is ready, discover combos
+    target_combos = get_target_combos()
+    print(f"[{time.ctime()}] Monitoring combos: {target_combos}")
     
     while True:
         try:
