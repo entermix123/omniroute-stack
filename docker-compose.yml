@@ -52,7 +52,7 @@ services:
       - MCP_URL=http://mcp-server:8000/mcp
       - COMBO_ID=Nvidia-Free-Stack
       - INTERVAL_SEC=300          # 5 minutes
-      - AUTO_APPLY=false          # set to \"true\" to auto-reorder
+      - AUTO_APPLY=true          # set to \"true\" to auto-reorder
       - HEALTH_PORT=8080
     ports:
       - "127.0.0.1:8081:8080"             # Health endpoint (http://localhost:8081/health)
