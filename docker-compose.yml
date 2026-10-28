@@ -8,18 +8,19 @@ services:
   # 1️⃣ OmniRoute – the routing proxy
   # -------------------------------------------------
   omnroute:
-    image: ghcr.io/diegosouzapw/omniroute   # official image, auto‑updates
+    image: ghcr.io/diegosouzapw/omniroute:3.8.51   # official image, auto‑updates
     container_name: omnroute
     restart: unless-stopped
     environment:
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - DATA_DIR=/app/data          # make the data location explicit
     # Bind only to localhost inside the container; Docker Desktop forwards it to the host
     ports:
       - "127.0.0.1:20128:20128"
     networks:
       - omnroute-net
     volumes:
-      - ./data/omnroute:/data   # optional persistence for combos / logs
+      - omniroute-data:/app/data   # persistent config, providers, combos
 
   # -------------------------------------------------
   # 2️⃣ Open WebUI – UI that talks to OmniRoute
@@ -51,7 +52,7 @@ services:
       - MCP_URL=http://mcp-server:8000/mcp
       - COMBO_ID=Nvidia-Free-Stack
       - INTERVAL_SEC=300          # 5 minutes
-      - AUTO_APPLY=false          # set to "true" to auto-reorder
+      - AUTO_APPLY=false          # set to \"true\" to auto-reorder
       - HEALTH_PORT=8080
     ports:
       - "127.0.0.1:8081:8080"             # Health endpoint (http://localhost:8081/health)
@@ -82,9 +83,4 @@ services:
 # -------------------------------------------------
 volumes:
   open-webui:
-
-
-
-
-
-
+  omniroute-data:

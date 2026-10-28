@@ -1,4 +1,4 @@
-"# OmniRoute Docker Setup for Windows
+# OmniRoute Docker Setup for Windows
 
 A ready‑to‑run Docker‑Compose stack that includes:
 
@@ -89,18 +89,19 @@ services:
   # 1️⃣ OmniRoute – the routing proxy
   # -------------------------------------------------
   omnroute:
-    image: ghcr.io/diegosouzapw/omniroute   # official image, auto‑updates
+    image: ghcr.io/diegosouzapw/omniroute:3.8.51   # official image, auto‑updates
     container_name: omnroute
     restart: unless-stopped
     environment:
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - DATA_DIR=/app/data          # make the data location explicit
     # Bind only to localhost inside the container; Docker Desktop forwards it to the host
     ports:
-      - \"127.0.0.1:20128:20128\"
+      - "127.0.0.1:20128:20128"
     networks:
       - omnroute-net
     volumes:
-      - ./data/omnroute:/data   # optional persistence for combos / logs
+      - ./data/omnroute:/app/data   # persistent config, providers, combos
 
   # -------------------------------------------------
   # 2️⃣ Open WebUI – UI that talks to OmniRoute
@@ -163,6 +164,7 @@ services:
 # -------------------------------------------------
 volumes:
   open-webui:
+  omniroute-data:
 ```
 
 ### What each service does
@@ -872,13 +874,16 @@ docker compose logs -f health-monitor
 
 ## 🔑 Creating Combos in OmniRoute (CRITICAL)
 
+**Register on any free model provider platform. In this case is used NVidia Free models. Go to [NVidia Developer Platform](https://developer.nvidia.com/), register and create API Key**
+
 **Combos must be created in OmniRoute before the stack can route to them.** The health monitor and MCP tools only work with existing combos.
 
 ### Method 1: Via OmniRoute Web UI (Recommended)
 
 1. Open `http://localhost:20128` in your browser (OmniRoute admin UI)
-2. Go to **Combos** → **Create Combo**
-3. Fill in:
+2. Add NVidia provider → **Providers, search for NVidia NIM in API Key Providers section and add a connection using the created NVidia API Key**
+3. Go to **Combos** → **Create Combo**
+4. Fill in:
    - **Name**: e.g., `Nvidia-Free-Stack`
    - **Strategy**: `priority` (default) or `round-robin`
    - **Models**: Add models using their **provider/model** format:
@@ -887,7 +892,7 @@ docker compose logs -f health-monitor
      - `ollama/glm-5.2`
      - `openai/gpt-4o-mini`
      - `anthropic/claude-3-haiku`
-4. Save the combo
+5. Save the combo
 
 ### Method 2: Via API (Scriptable)
 
@@ -949,17 +954,19 @@ The health monitor will show `HTTP_400: Unable to determine provider` if you use
 
 ### Installing OmniSkills
 
-1. **Via OmniRoute UI** (Settings → OmniSkills → Install):
-   - Browse available skills
+1. Register on platform for skill [Skillsmp](https://skillsmp.com/) and create API Key
+   
+2. **Via OmniRoute UI** (Settings → OmniSkills → Install):
+   - Go to OmniRoute UI under Settings → OmniSkills and set Skillsmp API Key
+   - Browse available skills on marketplace tab
    - Click Install on desired skills
-   - Configure provider credentials if needed
 
-2. **Via CLI** (if available):
+3. **Via CLI** (if available):
    ```bash
    omnroute skills install <skill-name>
    ```
 
-3. **Popular OmniSkills to install**:
+4. **Popular OmniSkills to install**:
    - `function-calling` - enables function/tool calling
    - `structured-output` - JSON schema enforcement
    - `code-execution` - sandboxed code execution
@@ -975,11 +982,20 @@ After installing skills, add them to your combos:
   "name": "Nvidia-Free-Stack",
   "strategy": "priority",
   "models": [
-    {"model": "nvidia/nvidia-nemotron-3-ultra-550b-a55b"},
-    {"model": "nvidia/google-gemma-4-31b-it"},
-    {"model": "ollama/glm-5.2"},
+    {"model": "nvidia/nvidia/nemotron-3-ultra-550b-a55b"},
+    {"model": "nvidia/nvidia/nemotron-3-super-120b-a12b"}
+    {"model": "zcode/glm-5.3"},
     {"model": "omniskill:function-calling"},
-    {"model": "omniskill:structured-output"}
+    {"model": "omniskill:structured-output"},
+    {"model": "omniskill:devops-helper"},
+    {"model": "omniskill:file-reader"},
+    {"model": "omniskill:web-search"},
+    {"model": "omniskill:docs-assistant"},
+    {"model": "omniskill:obra-superpowers-brainstorming"},
+    {"model": "omniskill:obra-superpowers-receiving-code-review"}, 
+    {"model": "omniskill:obra-superpowers-systematic-debugging"},
+    {"model": "omniskill:grill-with-docs"},
+    {"model": "omniskill:implement-spec"}
   ]
 }
 ```
