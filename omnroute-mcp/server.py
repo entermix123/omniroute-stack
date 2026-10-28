@@ -52,7 +52,8 @@ def _normalize_member(member):
         return member
 
     if isinstance(member, dict):
-        for k in ("id", "name", "model", "model_id"):
+        # Priority: real provider model ID first, then fallbacks
+        for k in ("model", "model_id", "id", "name"):
             if member.get(k):
                 return str(member[k])
 
@@ -307,3 +308,5 @@ if __name__ == "__main__":
         json_response=True,
         host="0.0.0.0",
     )
+
+
