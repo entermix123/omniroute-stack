@@ -101,7 +101,7 @@ services:
     networks:
       - omnroute-net
     volumes:
-      - ./data/omnroute:/app/data   # persistent config, providers, combos
+      - omniroute-data:/app/data   # persistent config, providers, combos
 
   # -------------------------------------------------
   # 2️⃣ Open WebUI – UI that talks to OmniRoute
@@ -111,7 +111,7 @@ services:
     container_name: open-webui
     restart: unless-stopped
     ports:
-      - \"3000:8080\"                 # UI reachable at http://localhost:3000
+      - "3000:8080"                 # UI reachable at http://localhost:3000
     environment:
       # Docker Desktop on Windows resolves this hostname to the host machine
       - OPENAI_API_BASE_URL=http://host.docker.internal:20128/v1
@@ -136,7 +136,7 @@ services:
       - AUTO_APPLY=false          # set to \"true\" to auto-reorder
       - HEALTH_PORT=8080
     ports:
-      - \"127.0.0.1:8081:8080\"             # Health endpoint (http://localhost:8081/health)
+      - "127.0.0.1:8081:8080"             # Health endpoint (http://localhost:8081/health)
     networks:
       - omnroute-net
     depends_on:
@@ -153,7 +153,7 @@ services:
       - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
       - OMNIROUTE_URL=http://omnroute:20128   # internal Docker DNS name
     ports:
-      - \"127.0.0.1:8000:8000\"             # MCP HTTP endpoint (any agent can reach it)
+      - "127.0.0.1:8000:8000"             # MCP HTTP endpoint (any agent can reach it)
     networks:
       - omnroute-net
     depends_on:
