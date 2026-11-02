@@ -17,7 +17,7 @@ A ready‑to‑run Docker‑Compose stack that includes:
 
 **OmniRoute** is a lightweight, local model-routing proxy that sits between your AI clients (Open WebUI, VS Code extensions, custom scripts, etc.) and dozens of upstream LLM providers (Ollama, LM Studio, OpenAI-compatible APIs, cloud endpoints, etc.). It lets you:
 
-- **Combine multiple models into \"combos\"** with automatic fall-back, priority ordering, and health-based routing.
+- **Combine multiple models into "combos"** with automatic fall-back, priority ordering, and health-based routing.
 - **Expose a single OpenAI-compatible endpoint** (`http://localhost:20128/v1`) so any OpenAI-client code works unchanged.
 - **Manage API keys, timeouts, and retries centrally**—no need to update every client when a provider changes.
 - **Run 100 % locally** (no data leaves your machine unless you explicitly point a combo at a cloud provider).
@@ -61,7 +61,7 @@ omniroute-stack/
 
 * * *
 
-## 5️⃣ The `.env` file (keep it secret!)
+## 3️⃣ The `.env` file (keep it secret!)
 
 Create a file named `.env` in the root of `omniroute-stack` and add only this line:
 
@@ -74,7 +74,7 @@ Docker‑Compose automatically reads it and injects the key into the containers.
 
 * * *
 
-## 5️⃣ `docker-compose.yml`
+## 4️⃣ `docker-compose.yml`
 
 Copy the entire block below into a file named `docker-compose.yml` inside `omniroute-stack`.
 
@@ -133,7 +133,7 @@ services:
       - MCP_URL=http://mcp-server:8000/mcp
       - COMBO_ID=Nvidia-Free-Stack
       - INTERVAL_SEC=300          # 5 minutes
-      - AUTO_APPLY=false          # set to \"true\" to auto-reorder
+      - AUTO_APPLY=false          # set to "true" to auto-reorder
       - HEALTH_PORT=8080
     ports:
       - "127.0.0.1:8081:8080"             # Health endpoint (http://localhost:8081/health)
@@ -202,7 +202,7 @@ COPY server.py /app/server.py
 
 EXPOSE 8000
 
-CMD [\"python\", \"server.py\"]
+CMD ["python", "server.py"]
 ```
 
 ### `omnroute-mcp/server.py`
@@ -219,10 +219,10 @@ from mcp.server.mcpserver import MCPServer
 # Configuration
 # -------------------------------------------------
 
-OMNIROUTE_URL = os.getenv(\"OMNIROUTE_URL\", \"http://omnroute:20128\")
-API_KEY = os.getenv(\"OMNIROUTE_API_KEY\")
+OMNIROUTE_URL = os.getenv("OMNIROUTE_URL", "http://omnroute:20128")
+API_KEY = os.getenv("OMNIROUTE_API_KEY")
 
-mcp = MCPServer(\"OmniRoute MCP\")
+mcp = MCPServer("OmniRoute MCP")
 
 # -------------------------------------------------
 # OmniRoute helpers
@@ -230,11 +230,11 @@ mcp = MCPServer(\"OmniRoute MCP\")
 
 def _req(method: str, path: str, json_body=None):
     headers = {
-        \"Authorization\": f\"Bearer {API_KEY}\",
-        \"Content-Type\": \"application/json\",
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
     }
 
-    url = f\"{OMNIROUTE_URL}{path}\"
+    url = f"{OMNIROUTE_URL}{path}"
 
     resp = requests.request(
         method,
@@ -249,12 +249,12 @@ def _req(method: str, path: str, json_body=None):
 
 
 def _get_combo_by_name(combo_name: str):
-    \"\"\"Fetch all combos and find one by name. Returns the combo dict with its UUID.\"\"\"
-    data = _req(\"GET\", \"/api/combos\")
-    for combo in data.get(\"combos\", []):
-        if combo.get(\"name\") == combo_name:
+    """Fetch all combos and find one by name. Returns the combo dict with its UUID."""
+    data = _req("GET", "/api/combos")
+    for combo in data.get("combos", []):
+        if combo.get("name") == combo_name:
             return combo
-    raise ValueError(f\"Combo '{combo_name}' not found\")
+    raise ValueError(f"Combo '{combo_name}' not found")
 
 
 def _normalize_member(member):
@@ -262,7 +262,7 @@ def _normalize_member(member):
         return member
 
     if isinstance(member, dict):
-        for k in (\"id\", \"name\", \"model\", \"model_id\"):
+        for k in ("id", "name", "model", "model_id"):
             if member.get(k):
                 return str(member[k])
 
@@ -273,7 +273,7 @@ def _get_model_ids(data):
     items = (
         data
         if isinstance(data, list)
-        else (data.get(\"models\") or data.get(\"items\") or [])
+        else (data.get("models") or data.get("items") or [])
     )
 
     ids = []
@@ -297,24 +297,24 @@ def _probe_one(model_id, timeout_s: float = 8.0):
     start = time.time()
 
     payload = {
-        \"model\": model_id,
-        \"messages\": [
+        "model": model_id,
+        "messages": [
             {
-                \"role\": \"user\",
-                \"content\": \"ok\",
+                "role": "user",
+                "content": "ok",
             }
         ],
-        \"max_tokens\": 8,
-        \"temperature\": 0.0,
+        "max_tokens": 8,
+        "temperature": 0.0,
     }
 
     try:
         resp = requests.post(
-            f\"{OMNIROUTE_URL}/v1/chat/completions\",
+            f"{OMNIROUTE_URL}/v1/chat/completions",
             json=payload,
             headers={
-                \"Authorization\": f\"Bearer {API_KEY}\",
-                \"Content-Type\": \"application/json\",
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json",
             },
             timeout=timeout_s,
         )
@@ -323,40 +323,40 @@ def _probe_one(model_id, timeout_s: float = 8.0):
 
         if resp.status_code == 200:
             return {
-                \"model\": model_id,
-                \"status\": \"UP\",
-                \"latency_ms\": latency_ms,
+                "model": model_id,
+                "status": "UP",
+                "latency_ms": latency_ms,
             }
 
         kinds = {
-            \"429\": \"RATE_LIMITED\",
-            \"401\": \"UNAUTH\",
-            \"403\": \"FORBIDDEN\",
-            \"404\": \"NOT_FOUND\",
+            "429": "RATE_LIMITED",
+            "401": "UNAUTH",
+            "403": "FORBIDDEN",
+            "404": "NOT_FOUND",
         }
 
         return {
-            \"model\": model_id,
-            \"status\": kinds.get(
+            "model": model_id,
+            "status": kinds.get(
                 str(resp.status_code),
-                f\"HTTP_{resp.status_code}\",
+                f"HTTP_{resp.status_code}",
             ),
-            \"latency_ms\": latency_ms,
-            \"detail\": resp.text[:120],
+            "latency_ms": latency_ms,
+            "detail": resp.text[:120],
         }
 
     except requests.exceptions.Timeout:
         return {
-            \"model\": model_id,
-            \"status\": \"TIMEOUT\",
-            \"detail\": f\"no response in {timeout_s}s\",
+            "model": model_id,
+            "status": "TIMEOUT",
+            "detail": f"no response in {timeout_s}s",
         }
 
     except requests.exceptions.ConnectionError:
         return {
-            \"model\": model_id,
-            \"status\": \"DOWN\",
-            \"detail\": \"connection failed\",
+            "model": model_id,
+            "status": "DOWN",
+            "detail": "connection failed",
         }
 
 
@@ -369,7 +369,7 @@ def probe_model(
     model_id: str,
     timeout_s: float = 8.0,
 ) -> str:
-    \"\"\"Probe an OmniRoute model and report its health and latency.\"\"\"
+    """Probe an OmniRoute model and report its health and latency."""
 
     return json.dumps(
         _probe_one(model_id, timeout_s)
@@ -381,7 +381,7 @@ def probe_combo(
     combo_id: str,
     timeout_s: float = 8.0,
 ) -> str:
-    \"\"\"Probe all models in an OmniRoute combo and rank them by health and latency.\"\"\"
+    """Probe all models in an OmniRoute combo and rank them by health and latency."""
 
     combo_data = _get_combo_by_name(combo_id)
 
@@ -394,18 +394,18 @@ def probe_combo(
 
     def score(r):
         base = {
-            \"UP\": 0,
-            \"RATE_LIMITED\": 1,
-            \"TIMEOUT\": 2,
-            \"DOWN\": 3,
+            "UP": 0,
+            "RATE_LIMITED": 1,
+            "TIMEOUT": 2,
+            "DOWN": 3,
         }.get(
-            r[\"status\"],
+            r["status"],
             4,
         )
 
         return (
             base,
-            r.get(\"latency_ms\", 0),
+            r.get("latency_ms", 0),
         )
 
     ranked = sorted(
@@ -415,12 +415,12 @@ def probe_combo(
 
     return json.dumps(
         {
-            \"combo\": combo_id,
-            \"recommended_order\": [
-                r[\"model\"]
+            "combo": combo_id,
+            "recommended_order": [
+                r["model"]
                 for r in ranked
             ],
-            \"details\": ranked,
+            "details": ranked,
         }
     )
 
@@ -430,21 +430,21 @@ def set_combo_priority(
     combo_id: str,
     model_order: list[str],
 ) -> str:
-    \"\"\"Change the model priority order for an OmniRoute combo.
+    """Change the model priority order for an OmniRoute combo.
     
     Args:
-        combo_id: The name of the combo (e.g., \"Nvidia-Free-Stack\")
+        combo_id: The name of the combo (e.g., "Nvidia-Free-Stack")
         model_order: List of model IDs in the desired priority order
-    \"\"\"
+    """
 
     # Get the combo to find its UUID
     combo_data = _get_combo_by_name(combo_id)
-    combo_uuid = combo_data.get(\"id\")
+    combo_uuid = combo_data.get("id")
     
     # Build the models array in the new order
     # We need to preserve the full model objects but reorder them
-    existing_models = combo_data.get(\"models\", [])
-    model_map = {m.get(\"model\"): m for m in existing_models}
+    existing_models = combo_data.get("models", [])
+    model_map = {m.get("model"): m for m in existing_models}
     
     new_models = []
     for model_name in model_order:
@@ -457,14 +457,14 @@ def set_combo_priority(
             new_models.append(model_obj)
     
     payload = {
-        \"name\": combo_id,
-        \"models\": new_models,
-        \"strategy\": combo_data.get(\"strategy\", \"priority\"),
+        "name": combo_id,
+        "models": new_models,
+        "strategy": combo_data.get("strategy", "priority"),
     }
 
     data = _req(
-        \"PATCH\",
-        f\"/api/combos/{combo_uuid}\",
+        "PATCH",
+        f"/api/combos/{combo_uuid}",
         payload,
     )
 
@@ -473,49 +473,49 @@ def set_combo_priority(
 
 @mcp.tool()
 def list_models() -> str:
-    \"\"\"List the models currently available through OmniRoute.\"\"\"
+    """List the models currently available through OmniRoute."""
 
     data = _req(
-        \"GET\",
-        \"/v1/models\",
+        "GET",
+        "/v1/models",
     )
 
     ids = [
-        m[\"id\"]
-        for m in data[\"data\"]
+        m["id"]
+        for m in data["data"]
     ]
 
-    return \"\\n\".join(ids)
+    return "\\n".join(ids)
 
 
 @mcp.tool()
 def list_combos() -> str:
-    \"\"\"List all combo names available in OmniRoute.\"\"\"
-    data = _req(\"GET\", \"/api/combos\")
-    names = [combo.get(\"name\", \"\") for combo in data.get(\"combos\", [])]
-    return \"\\n\".join(names)
+    """List all combo names available in OmniRoute."""
+    data = _req("GET", "/api/combos")
+    names = [combo.get("name", "") for combo in data.get("combos", [])]
+    return "\\n".join(names)
 
 
 @mcp.tool()
 def health_check() -> str:
-    \"\"\"Check whether OmniRoute is reachable and authenticated.\"\"\"
+    """Check whether OmniRoute is reachable and authenticated."""
     try:
-        data = _req(\"GET\", \"/v1/models\")
-        count = len(data.get(\"data\", []))
-        return f\"healthy: OmniRoute reachable, {count} models available\"
+        data = _req("GET", "/v1/models")
+        count = len(data.get("data", []))
+        return f"healthy: OmniRoute reachable, {count} models available"
     except Exception as exc:
-        return f\"unhealthy: {exc}\"
+        return f"unhealthy: {exc}"
 
 
 # -------------------------------------------------
 # Start MCP HTTP server
 # -------------------------------------------------
 
-if __name__ == \"__main__\":
+if __name__ == "__main__":
     mcp.run(
-        transport=\"streamable-http\",
+        transport="streamable-http",
         json_response=True,
-        host=\"0.0.0.0\",
+        host="0.0.0.0",
     )
 ```
 
@@ -533,7 +533,7 @@ ENV PYTHONUNBUFFERED=1
 RUN pip install --no-cache-dir requests
 WORKDIR /app
 COPY monitor.py /app/monitor.py
-CMD [\"python\", \"-u\", \"monitor.py\"]
+CMD ["python", "-u", "monitor.py"]
 ```
 
 ### `health-monitor/monitor.py`
@@ -547,60 +547,60 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-MCP_URL = os.getenv(\"MCP_URL\", \"http://localhost:8000/mcp\")
+MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp")
 # COMBO_ID can be:
 # - empty/unset: auto-discover all combos
-# - single combo name: \"Nvidia-Free-Stack\"
-# - comma-separated: \"Nvidia-Free-Stack,AMD-Stack\"
-COMBO_ID = os.getenv(\"COMBO_ID\", \"\").strip()
-INTERVAL_SEC = int(os.getenv(\"INTERVAL_SEC\", \"300\"))  # 5 min default
-AUTO_APPLY = os.getenv(\"AUTO_APPLY\", \"false\").lower() == \"true\"
-HEALTH_PORT = int(os.getenv(\"HEALTH_PORT\", \"8080\"))
+# - single combo name: "Nvidia-Free-Stack"
+# - comma-separated: "Nvidia-Free-Stack,AMD-Stack"
+COMBO_ID = os.getenv("COMBO_ID", "").strip()
+INTERVAL_SEC = int(os.getenv("INTERVAL_SEC", "300"))  # 5 min default
+AUTO_APPLY = os.getenv("AUTO_APPLY", "false").lower() == "true"
+HEALTH_PORT = int(os.getenv("HEALTH_PORT", "8080"))
 
 SESSION_ID = None
 LATEST_PROBES = {}  # combo_name -> probe data
 LATEST_PROBES_LOCK = threading.Lock()
 
 def initialize_session():
-    \"\"\"Initialize MCP session by calling initialize method.\"\"\"
+    """Initialize MCP session by calling initialize method."""
     global SESSION_ID
     payload = {
-        \"jsonrpc\": \"2.0\",
-        \"method\": \"initialize\",
-        \"params\": {
-            \"protocolVersion\": \"2024-11-05\",
-            \"capabilities\": {},
-            \"clientInfo\": {\"name\": \"health-monitor\", \"version\": \"1.0\"}
+        "jsonrpc": "2.0",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "health-monitor", "version": "1.0"}
         },
-        \"id\": 1
+        "id": 1
     }
     try:
         resp = requests.post(MCP_URL, json=payload, timeout=30)
         resp.raise_for_status()
         # Update session ID from response header if present
-        session_id_header = resp.headers.get(\"mcp-session-id\") or resp.headers.get(\"Mcp-Session-ID\")
+        session_id_header = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session-ID")
         if session_id_header:
             SESSION_ID = session_id_header
-            print(f\"[{time.ctime()}] MCP session initialized: {SESSION_ID[:8]}...\")
+            print(f"[{time.ctime()}] MCP session initialized: {SESSION_ID[:8]}...")
         else:
-            print(f\"[{time.ctime()}] Warning: No session ID in initialize response\")
+            print(f"[{time.ctime()}] Warning: No session ID in initialize response")
         return True
     except Exception as e:
-        print(f\"[{time.ctime()}] Failed to initialize MCP session: {e}\")
+        print(f"[{time.ctime()}] Failed to initialize MCP session: {e}")
         return False
 
 def call_mcp(method: str, params: dict):
     global SESSION_ID
-    payload = {\"jsonrpc\": \"2.0\", \"method\": method, \"params\": params, \"id\": 1}
+    payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
     headers = {}
     if SESSION_ID:
-        headers[\"mcp-session-id\"] = SESSION_ID
+        headers["mcp-session-id"] = SESSION_ID
     
     try:
         resp = requests.post(MCP_URL, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         # Update session ID from response header if present
-        session_id_header = resp.headers.get(\"mcp-session-id\") or resp.headers.get(\"Mcp-Session-ID\")
+        session_id_header = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session-ID")
         if session_id_header:
             SESSION_ID = session_id_header
         return resp.json()
@@ -609,17 +609,17 @@ def call_mcp(method: str, params: dict):
             # Check if the error is about missing session ID
             try:
                 error_data = resp.json()
-                if error_data.get(\"error\", {}).get(\"message\") == \"Bad Request: Missing session ID\":
+                if error_data.get("error", {}).get("message") == "Bad Request: Missing session ID":
                     # Get session ID from response header
-                    session_id_header = resp.headers.get(\"mcp-session-id\") or resp.headers.get(\"Mcp-Session-ID\")
+                    session_id_header = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session-ID")
                     if session_id_header:
                         SESSION_ID = session_id_header
                         # Retry the request with the session ID
-                        headers[\"mcp-session-id\"] = SESSION_ID
+                        headers["mcp-session-id"] = SESSION_ID
                         resp = requests.post(MCP_URL, json=payload, headers=headers, timeout=30)
                         resp.raise_for_status()
                         # Update session ID again from response (should be same)
-                        session_id_header = resp.headers.get(\"mcp-session-id\") or resp.headers.get(\"Mcp-Session-ID\")
+                        session_id_header = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session-ID")
                         if session_id_header:
                             SESSION_ID = session_id_header
                         return resp.json()
@@ -629,15 +629,15 @@ def call_mcp(method: str, params: dict):
             # Session not found - need to re-initialize
             try:
                 error_data = resp.json()
-                if error_data.get(\"error\", {}).get(\"message\") == \"Session not found\":
-                    print(f\"[{time.ctime()}] Session expired, re-initializing...\")
+                if error_data.get("error", {}).get("message") == "Session not found":
+                    print(f"[{time.ctime()}] Session expired, re-initializing...")
                     SESSION_ID = None
                     if initialize_session():
                         # Retry with new session
-                        headers[\"mcp-session-id\"] = SESSION_ID
+                        headers["mcp-session-id"] = SESSION_ID
                         resp = requests.post(MCP_URL, json=payload, headers=headers, timeout=30)
                         resp.raise_for_status()
-                        session_id_header = resp.headers.get(\"mcp-session-id\") or resp.headers.get(\"Mcp-Session-ID\")
+                        session_id_header = resp.headers.get("mcp-session-id") or resp.headers.get("Mcp-Session-ID")
                         if session_id_header:
                             SESSION_ID = session_id_header
                         return resp.json()
@@ -647,95 +647,95 @@ def call_mcp(method: str, params: dict):
         raise
 
 def get_target_combos():
-    \"\"\"Get list of combos to monitor based on COMBO_ID env var.\"\"\"
+    """Get list of combos to monitor based on COMBO_ID env var."""
     if not COMBO_ID:
         # Auto-discover: call MCP to get all combos via list_combos tool
         try:
-            result = call_mcp(\"tools/call\", {
-                \"name\": \"list_combos\",
-                \"arguments\": {}
+            result = call_mcp("tools/call", {
+                "name": "list_combos",
+                "arguments": {}
             })
             # Parse result - list_combos returns newline-separated combo names
-            result_data = result.get(\"result\", {})
-            content = result_data.get(\"content\", [])
+            result_data = result.get("result", {})
+            content = result_data.get("content", [])
             if content and isinstance(content, list) and len(content) > 0:
-                text_content = content[0].get(\"text\", \"\")
+                text_content = content[0].get("text", "")
                 if text_content:
-                    combos = [c.strip() for c in text_content.split(\"\\n\") if c.strip()]
+                    combos = [c.strip() for c in text_content.split("\\n") if c.strip()]
                     if combos:
-                        print(f\"[{time.ctime()}] Auto-discovered combos: {combos}\")
+                        print(f"[{time.ctime()}] Auto-discovered combos: {combos}")
                         return combos
-            print(f\"[{time.ctime()}] Auto-discover returned empty, using default\")
+            print(f"[{time.ctime()}] Auto-discover returned empty, using default")
         except Exception as e:
-            print(f\"[{time.ctime()}] Auto-discover failed, using default: {e}\")
-        return [\"Nvidia-Free-Stack\"]  # fallback
-    return [c.strip() for c in COMBO_ID.split(\",\") if c.strip()]
+            print(f"[{time.ctime()}] Auto-discover failed, using default: {e}")
+        return ["Nvidia-Free-Stack"]  # fallback
+    return [c.strip() for c in COMBO_ID.split(",") if c.strip()]
 
 def probe_combo(combo_name):
-    \"\"\"Probe a single combo and update global state.\"\"\"
+    """Probe a single combo and update global state."""
     global LATEST_PROBES
-    print(f\"[{time.ctime()}] Probing combo: {combo_name}\")
-    result = call_mcp(\"tools/call\", {
-        \"name\": \"probe_combo\",
-        \"arguments\": {\"combo_id\": combo_name}
+    print(f"[{time.ctime()}] Probing combo: {combo_name}")
+    result = call_mcp("tools/call", {
+        "name": "probe_combo",
+        "arguments": {"combo_id": combo_name}
     })
     
     # Parse the nested JSON response
     try:
-        result_data = result.get(\"result\", {})
-        content = result_data.get(\"content\", [])
+        result_data = result.get("result", {})
+        content = result_data.get("content", [])
         if content and isinstance(content, list) and len(content) > 0:
-            text_content = content[0].get(\"text\", \"\")
+            text_content = content[0].get("text", "")
             if text_content:
                 data = json.loads(text_content)
             else:
                 data = {}
         else:
             data = {}
-        recommended = data.get(\"recommended_order\", [])
-        details = data.get(\"details\", [])
+        recommended = data.get("recommended_order", [])
+        details = data.get("details", [])
         
         # Update global state
         with LATEST_PROBES_LOCK:
             LATEST_PROBES[combo_name] = {
-                \"timestamp\": time.time(),
-                \"combo\": combo_name,
-                \"recommended_order\": recommended,
-                \"details\": details,
-                \"error\": None
+                "timestamp": time.time(),
+                "combo": combo_name,
+                "recommended_order": recommended,
+                "details": details,
+                "error": None
             }
         
-        print(f\"  Recommended order: {recommended}\")
+        print(f"  Recommended order: {recommended}")
         for d in details:
-            print(f\"    {d['model']}: {d['status']} ({d.get('latency_ms', '?')}ms)\")
+            print(f"    {d['model']}: {d['status']} ({d.get('latency_ms', '?')}ms)")
         
         if AUTO_APPLY and recommended:
-            print(f\"  Auto-applying new priority order...\")
-            apply_result = call_mcp(\"tools/call\", {
-                \"name\": \"set_combo_priority\",
-                \"arguments\": {\"combo_id\": combo_name, \"model_order\": recommended}
+            print(f"  Auto-applying new priority order...")
+            apply_result = call_mcp("tools/call", {
+                "name": "set_combo_priority",
+                "arguments": {"combo_id": combo_name, "model_order": recommended}
             })
-            print(f\"  Applied: {apply_result}\")
+            print(f"  Applied: {apply_result}")
     except Exception as e:
         error_msg = str(e)
-        print(f\"  Error parsing probe result: {error_msg}\")
+        print(f"  Error parsing probe result: {error_msg}")
         with LATEST_PROBES_LOCK:
             LATEST_PROBES[combo_name] = {
-                \"timestamp\": time.time(),
-                \"combo\": combo_name,
-                \"recommended_order\": [],
-                \"details\": [],
-                \"error\": error_msg
+                "timestamp": time.time(),
+                "combo": combo_name,
+                "recommended_order": [],
+                "details": [],
+                "error": error_msg
             }
             
 def probe_and_maybe_apply():
-    \"\"\"Probe all target combos.\"\"\"
+    """Probe all target combos."""
     target_combos = get_target_combos()
     for combo_name in target_combos:
         try:
             probe_combo(combo_name)
         except Exception as e:
-            print(f\"[{time.ctime()}] Probe failed for {combo_name}: {e}\")
+            print(f"[{time.ctime()}] Probe failed for {combo_name}: {e}")
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -779,7 +779,7 @@ class HealthHandler(BaseHTTPRequestHandler):
                     if response.get('timestamp'):
                         response['timestamp_iso'] = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(response['timestamp']))
                 else:
-                    response = {\"error\": \"Combo not found\", \"combo\": combo_name}
+                    response = {"error": "Combo not found", "combo": combo_name}
             self.wfile.write(json.dumps(response).encode())
         else:
             self.send_response(404)
@@ -791,11 +791,11 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def run_health_server():
     server = HTTPServer(('0.0.0.0', HEALTH_PORT), HealthHandler)
-    print(f\"[{time.ctime()}] Health endpoint server started on port {HEALTH_PORT}\")
+    print(f"[{time.ctime()}] Health endpoint server started on port {HEALTH_PORT}")
     server.serve_forever()
 
-if __name__ == \"__main__\":
-    print(f\"Starting health monitor (auto-discover combos) every {INTERVAL_SEC}s (AUTO_APPLY={AUTO_APPLY})\")
+if __name__ == "__main__":
+    print(f"Starting health monitor (auto-discover combos) every {INTERVAL_SEC}s (AUTO_APPLY={AUTO_APPLY})")
     
     # Start health endpoint server in background thread
     health_thread = threading.Thread(target=run_health_server, daemon=True)
@@ -803,18 +803,18 @@ if __name__ == \"__main__\":
     
     # Initialize MCP session first
     while not initialize_session():
-        print(f\"[{time.ctime()}] Retrying session initialization in 10s...\")
+        print(f"[{time.ctime()}] Retrying session initialization in 10s...")
         time.sleep(10)
     
     # Now that session is ready, discover combos
     target_combos = get_target_combos()
-    print(f\"[{time.ctime()}] Monitoring combos: {target_combos}\")
+    print(f"[{time.ctime()}] Monitoring combos: {target_combos}")
     
     while True:
         try:
             probe_and_maybe_apply()
         except Exception as e:
-            print(f\"[{time.ctime()}] Probe failed: {e}\")
+            print(f"[{time.ctime()}] Probe failed: {e}")
         time.sleep(INTERVAL_SEC)
 ```
 
@@ -847,17 +847,17 @@ docker compose logs -f health-monitor
 2.  **Check the MCP health endpoint** (optional):
     
     ```powershell
-    curl http://localhost:8000/mcp -X POST -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"health_check\"},\"id\":1}'
+    curl http://localhost:8000/mcp -X POST -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"health_check"},"id":1}'
     ```
     
-    You should see `\"healthy\"`.
+    You should see `"healthy"`.
     
 3.  **Test a probe** (optional):
     
     ```powershell
     curl http://localhost:8000/mcp \
-      -H \"Content-Type: application/json\" \
-      -X POST -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"probe_combo\",\"arguments\":{\"combo_id\":\"Nvidia-Free-Stack\"}},\"id\":1}'
+      -H "Content-Type: application/json" \
+      -X POST -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"probe_combo","arguments":{"combo_id":"Nvidia-Free-Stack"}},"id":1}'
     ```
     
     The response will be a JSON object containing the status of each model and a recommended priority order.
@@ -902,15 +902,15 @@ $apiKey = (Get-Content .env | Select-String 'OMNIROUTE_API_KEY=').Line.Split('='
 
 # Create a combo
 curl.exe -X POST http://localhost:20128/api/combos \
-  -H \"Authorization: Bearer $apiKey\" \
-  -H \"Content-Type: application/json\" \
+  -H "Authorization: Bearer $apiKey" \
+  -H "Content-Type: application/json" \
   -d '{
-    \"name\": \"Nvidia-Free-Stack\",
-    \"strategy\": \"priority\",
-    \"models\": [
-      {\"model\": \"nvidia/nvidia-nemotron-3-ultra-550b-a55b\"},
-      {\"model\": \"nvidia/google-gemma-4-31b-it\"},
-      {\"model\": \"ollama/glm-5.2\"}
+    "name": "Nvidia-Free-Stack",
+    "strategy": "priority",
+    "models": [
+      {"model": "nvidia/nvidia-nemotron-3-ultra-550b-a55b"},
+      {"model": "nvidia/google-gemma-4-31b-it"},
+      {"model": "ollama/glm-5.2"}
     ]
   }'
 ```
@@ -919,7 +919,7 @@ curl.exe -X POST http://localhost:20128/api/combos \
 
 ```powershell
 # Export existing combos from another OmniRoute instance
-curl.exe -H \"Authorization: Bearer $apiKey\" http://localhost:20128/api/combos > combos-backup.json
+curl.exe -H "Authorization: Bearer $apiKey" http://localhost:20128/api/combos > combos-backup.json
 
 # Import into new instance
 $combos = Get-Content combos-backup.json -Raw | ConvertFrom-Json
@@ -928,8 +928,8 @@ foreach ($combo in $combos.combos) {
     $combo.PSObject.Properties.Remove('id')
     $json = $combo | ConvertTo-Json -Depth 10
     curl.exe -X POST http://localhost:20128/api/combos \
-      -H \"Authorization: Bearer $apiKey\" \
-      -H \"Content-Type: application/json\" \
+      -H "Authorization: Bearer $apiKey" \
+      -H "Content-Type: application/json" \
       -d $json
 }
 ```
@@ -1050,61 +1050,61 @@ Configure continue config.json
 
 ```JSON
 {
-  \"name\": \"Main Config\",
-  \"version\": \"1.0.0\",
-  \"schema\": \"v1\",
-  \"models\": [
+  "name": "Main Config",
+  "version": "1.0.0",
+  "schema": "v1",
+  "models": [
     {
-      \"name\": \"Open WebUI Nvidia-Free-Stack\",
-      \"provider\": \"openai\",
-      \"model\": \"Nvidia-Free-Stack\",
-      \"apiKey\": \"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",
-      \"apiBase\": \"http://localhost:3000/api\",
-      \"roles\": [\"chat\", \"edit\", \"apply\"],
-      \"defaultCompletionOptions\": {
-        \"contextLength\": 1047576,
-        \"maxTokens\": 32768
+      "name": "Open WebUI Nvidia-Free-Stack",
+      "provider": "openai",
+      "model": "Nvidia-Free-Stack",
+      "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiBase": "http://localhost:3000/api",
+      "roles": ["chat", "edit", "apply"],
+      "defaultCompletionOptions": {
+        "contextLength": 1047576,
+        "maxTokens": 32768
       },
-      \"useLegacyCompletionsEndpoint\": false
+      "useLegacyCompletionsEndpoint": false
     },
     {
-      \"name\": \"OmniRoute Nvidia-Free-Stack\",
-      \"provider\": \"openai\",
-      \"model\": \"Nvidia-Free-Stack\",
-      \"apiBase\": \"http://127.0.0.1:20128/v1\",
-      \"apiKey\": \"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",
-      \"roles\": [\"chat\", \"edit\", \"apply\"],
-      \"defaultCompletionOptions\": {
-        \"contextLength\": 128000,
-        \"maxTokens\": 32768
+      "name": "OmniRoute Nvidia-Free-Stack",
+      "provider": "openai",
+      "model": "Nvidia-Free-Stack",
+      "apiBase": "http://127.0.0.1:20128/v1",
+      "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "roles": ["chat", "edit", "apply"],
+      "defaultCompletionOptions": {
+        "contextLength": 128000,
+        "maxTokens": 32768
       },
-      \"useLegacyCompletionsEndpoint\": false
+      "useLegacyCompletionsEndpoint": false
     },
     {
-      \"name\": \"Open WebUI auto-coding\",
-      \"provider\": \"openai\",
-      \"model\": \"auto/best-coding\",
-      \"apiKey\": \"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",
-      \"apiBase\": \"http://localhost:3000/api\",
-      \"roles\": [\"chat\", \"edit\", \"apply\"],
-      \"defaultCompletionOptions\": {
-        \"contextLength\": 1047576,
-        \"maxTokens\": 32768
+      "name": "Open WebUI auto-coding",
+      "provider": "openai",
+      "model": "auto/best-coding",
+      "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiBase": "http://localhost:3000/api",
+      "roles": ["chat", "edit", "apply"],
+      "defaultCompletionOptions": {
+        "contextLength": 1047576,
+        "maxTokens": 32768
       },
-      \"useLegacyCompletionsEndpoint\": false
+      "useLegacyCompletionsEndpoint": false
     },
     {
-      \"name\": \"Open WebUI auto-reasoning\",
-      \"provider\": \"openai\",
-      \"model\": \"auto/best-reasoning\",
-      \"apiKey\": \"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",
-      \"apiBase\": \"http://localhost:3000/api\",
-      \"roles\": [\"chat\", \"edit\", \"apply\"],
-      \"defaultCompletionOptions\": {
-        \"contextLength\": 1047576,
-        \"maxTokens\": 32768
+      "name": "Open WebUI auto-reasoning",
+      "provider": "openai",
+      "model": "auto/best-reasoning",
+      "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiBase": "http://localhost:3000/api",
+      "roles": ["chat", "edit", "apply"],
+      "defaultCompletionOptions": {
+        "contextLength": 1047576,
+        "maxTokens": 32768
       },
-      \"useLegacyCompletionsEndpoint\": false
+      "useLegacyCompletionsEndpoint": false
     }
   ]
 }
@@ -1151,14 +1151,14 @@ If you currently have OmniRoute running outside Docker and want to move it strai
 
 | What you want | API endpoint | Example command |
 |---------------|--------------|-----------------|
-| List all models | `GET /v1/models` | `curl -H \"Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx\" http://localhost:20128/v1/models > models.json` |
-| List all combos | `GET /api/combos` | `curl -H \"Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx\" http://localhost:20128/api/combos > combos.json` |
-| Export a single combo | `GET /api/combos/{combo_id}` | `curl -H \"Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx\" http://localhost:20128/api/combos/nvidia-free-stack > nvidia-free-stack.json` |
+| List all models | `GET /v1/models` | `curl -H "Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx" http://localhost:20128/v1/models > models.json` |
+| List all combos | `GET /api/combos` | `curl -H "Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx" http://localhost:20128/api/combos > combos.json` |
+| Export a single combo | `GET /api/combos/{combo_id}` | `curl -H "Authorization: Bearer sk-xxxxxxxxxxxxxxx-xxxxxxx-xxxxxxxx" http://localhost:20128/api/combos/nvidia-free-stack > nvidia-free-stack.json` |
 
 ```bash
 # 1️⃣ Dump the current combos
 curl -s http://localhost:20128/api/combos \
-    -H \"Authorization: Bearer $(cat .env | grep OMNIROUTE_API_KEY= | cut -d= -f2)\" \
+    -H "Authorization: Bearer $(cat .env | grep OMNIROUTE_API_KEY= | cut -d= -f2)" \
     > combos-export.json
 
 # 2️⃣ Copy the dump into the Docker data folder
@@ -1171,3 +1171,4 @@ docker compose up -d
 ```
 
 After the container starts, open the Open‑WebUI UI (http://localhost:3000) and you'll see the same combos you had locally.
+
