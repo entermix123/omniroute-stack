@@ -1,0 +1,24 @@
+# docker-compose.cloud.yml - Cloud provider configuration only
+# Usage: docker compose -f docker-compose.yml -f docker-compose.cloud.yml --env-file .env.cloud up -d
+
+# This file adds NO new services - cloud providers are configured entirely
+# in OmniRoute UI (http://localhost:20128) after stack starts:
+#   Providers → Add → Nvidia / OpenAI / Anthropic / Google / etc.
+#   Just paste your API keys.
+
+# Environment variables for convenience (optional - can enter in UI instead)
+services:
+  omnroute:
+    environment:
+      # Pre-seed API keys (optional - UI entry is fine too)
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      - FIREWORKS_API_KEY=${FIREWORKS_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+
+# No additional volumes or services needed for cloud providers

@@ -1,0 +1,89 @@
+# docker-compose.hybrid.yml - Self-hosted + Cloud providers (production)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.hybrid.yml --env-file .env.hybrid up -d
+
+# Includes local model servers (uncomment what you need) + cloud API keys
+
+services:
+  omnroute:
+    environment:
+      # Cloud API keys
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      - FIREWORKS_API_KEY=${FIREWORKS_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+
+# -------------------------------------------------
+# Self-hosted model servers (uncomment what you run)
+# -------------------------------------------------
+
+# Ollama (recommended for local GGUF models)
+# services:
+#   ollama:
+#     image: ollama/ollama:latest
+#     container_name: ollama
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:11434:11434"
+#     volumes:
+#       - ollama-data:/root/.ollama
+#     networks:
+#       - omnroute-net
+#     environment:
+#       - OLLAMA_MODELS=${OLLAMA_MODELS:-codellama:34b llama3.2 mistral:7b}
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: 1
+#               capabilities: [gpu]
+
+# vLLM (high-throughput, OpenAI-compatible)
+# services:
+#   vllm:
+#     image: vllm/vllm-openai:latest
+#     container_name: vllm
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:8000:8000"
+#     volumes:
+#       - vllm-cache:/root/.cache/huggingface
+#     networks:
+#       - omnroute-net
+#     command: --model ${VLLM_MODEL:-meta-llama/Llama-3.2-3B-Instruct} --dtype auto --api-key ${VLLM_API_KEY:-}
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: 1
+#               capabilities: [gpu]
+#     environment:
+#       - HF_TOKEN=${HF_TOKEN:-}
+
+# llama.cpp server (CPU-friendly, GGUF)
+# services:
+#   llamacpp:
+#     image: ghcr.io/ggerganov/llama.cpp:server
+#     container_name: llamacpp
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:8080:8080"
+#     volumes:
+#       - llamacpp-models:/models
+#     networks:
+#       - omnroute-net
+#     command: -m /models/${LLAMACPP_MODEL:-llama-3.2-3b-instruct-q4_k_m.gguf} -c 8192 --host 0.0.0.0 --port 8080
+
+# -------------------------------------------------
+# Volumes (uncomment matching services above)
+# -------------------------------------------------
+# volumes:
+#   ollama-data:
+#   vllm-cache:
+#   llamacpp-models:

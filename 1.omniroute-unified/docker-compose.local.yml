@@ -1,0 +1,98 @@
+# docker-compose.local.yml - Self-hosted model providers only
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up -d
+
+# This file adds NO new services - it only configures environment variables
+# for connecting to self-hosted models running OUTSIDE Docker (on host machine)
+# or in separate containers.
+
+# The actual provider configuration is done in OmniRoute UI (http://localhost:20128)
+# after the stack starts:
+#   Providers → Add → Ollama / LM Studio / OpenAI Compatible
+#   URL examples:
+#     - Ollama on host:      http://host.docker.internal:11434
+#     - LM Studio on host:   http://host.docker.internal:1234
+#     - vLLM in container:   http://vllm:8000/v1
+#     - llama.cpp server:    http://llamacpp:8080/v1
+
+# To RUN local model servers IN this compose stack, uncomment one section below:
+
+# -------------------------------------------------
+# Option A: Ollama (pulls models on startup)
+# -------------------------------------------------
+# services:
+#   ollama:
+#     image: ollama/ollama:latest
+#     container_name: ollama
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:11434:11434"
+#     volumes:
+#       - ollama-data:/root/.ollama
+#     networks:
+#       - omnroute-net
+#     environment:
+#       - OLLAMA_MODELS=codellama:34b llama3.2 mistral:7b
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: 1
+#               capabilities: [gpu]
+
+# -------------------------------------------------
+# Option B: LM Studio (GUI-based, harder to run headless)
+# -------------------------------------------------
+# services:
+#   lmstudio:
+#     image: ghcr.io/lmstudio-ai/lmstudio:latest  # if available
+#     # LM Studio is primarily a desktop app; consider running on host instead
+
+# -------------------------------------------------
+# Option C: vLLM (high-throughput OpenAI-compatible server)
+# -------------------------------------------------
+# services:
+#   vllm:
+#     image: vllm/vllm-openai:latest
+#     container_name: vllm
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:8000:8000"
+#     volumes:
+#       - vllm-cache:/root/.cache/huggingface
+#     networks:
+#       - omnroute-net
+#     command: --model meta-llama/Llama-3.2-3B-Instruct --dtype auto --api-key ${VLLM_API_KEY:-}
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: 1
+#               capabilities: [gpu]
+#     environment:
+#       - HF_TOKEN=${HF_TOKEN:-}
+
+# -------------------------------------------------
+# Option D: llama.cpp server (CPU-friendly)
+# -------------------------------------------------
+# services:
+#   llamacpp:
+#     image: ghcr.io/ggerganov/llama.cpp:server
+#     container_name: llamacpp
+#     restart: unless-stopped
+#     ports:
+#       - "127.0.0.1:8080:8080"
+#     volumes:
+#       - llamacpp-models:/models
+#     networks:
+#       - omnroute-net
+#     command: -m /models/llama-3.2-3b-instruct-q4_k_m.gguf -c 8192 --host 0.0.0.0 --port 8080
+
+# -------------------------------------------------
+# Volumes for local model servers (uncomment if using options above)
+# -------------------------------------------------
+# volumes:
+#   ollama-data:
+#   vllm-cache:
+#   llamacpp-models:

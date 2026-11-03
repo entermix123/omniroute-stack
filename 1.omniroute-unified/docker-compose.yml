@@ -1,0 +1,88 @@
+# Base docker-compose.yml - Shared services (OmniRoute, Open WebUI, MCP, Health Monitor)
+# Extend with docker-compose.local.yml, docker-compose.cloud.yml, or docker-compose.hybrid.yml
+
+networks:
+  omnroute-net:
+    driver: bridge
+
+services:
+  # -------------------------------------------------
+  # 1️⃣ OmniRoute – the routing proxy (ALWAYS REQUIRED)
+  # -------------------------------------------------
+  omnroute:
+    image: ghcr.io/diegosouzapw/omniroute:3.8.51
+    container_name: omnroute
+    restart: unless-stopped
+    environment:
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - DATA_DIR=/app/data
+    ports:
+      - "127.0.0.1:20128:20128"
+    networks:
+      - omnroute-net
+    volumes:
+      - omniroute-data:/app/data
+
+  # -------------------------------------------------
+  # 2️⃣ Open WebUI – UI that talks to OmniRoute
+  # -------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://host.docker.internal:20128/v1
+      - OPENAI_API_KEY=${OMNIROUTE_API_KEY}
+    networks:
+      - omnroute-net
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - omnroute
+
+  # -------------------------------------------------
+  # 3️⃣ MCP health-probe server (Python)
+  # -------------------------------------------------
+  mcp-server:
+    build: ./omnroute-mcp
+    container_name: omnroute-mcp
+    restart: unless-stopped
+    environment:
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - OMNIROUTE_URL=http://omnroute:20128
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - omnroute-net
+    depends_on:
+      - omnroute
+
+  # -------------------------------------------------
+  # 4️⃣ Health Monitor – periodic combo probe + HTTP status
+  # -------------------------------------------------
+  health-monitor:
+    build: ./health-monitor
+    container_name: omniroute-health-monitor
+    restart: unless-stopped
+    environment:
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY}
+      - MCP_URL=http://mcp-server:8000/mcp
+      - COMBO_ID=${COMBO_ID:-}
+      - INTERVAL_SEC=${INTERVAL_SEC:-300}
+      - AUTO_APPLY=${AUTO_APPLY:-false}
+      - HEALTH_PORT=8080
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - omnroute-net
+    depends_on:
+      - mcp-server
+
+# -------------------------------------------------
+# Named volumes
+# -------------------------------------------------
+volumes:
+  open-webui:
+  omniroute-data:

@@ -1,0 +1,5 @@
+# omniroute-unified/.gitignore
+.env
+.env.*
+!.env.example
+*.log
